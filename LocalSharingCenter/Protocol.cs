@@ -39,6 +39,30 @@ namespace LocalSharingCenter
         /// </summary>
         public static string ServerPublicKey = @"<RSAKeyValue><Modulus>tQDSUw8TPOiXXWtjxk8JV4FZ66mH5uz17whkUlcXI2knH+MILttMDXa+ZR0POOrTVqYMKrX2Mh7o8uBGtVs6SAz0bTpVdNnN89/20Xy7pl0o9MaoiBht5F4s8oukXc5P/8Ku2b/4kcOg5aTcYB57V8w1N7xcLXqKqO3f8PNvKrj+HdlpKBB+Iljgy61IUV0gkR9d8GvOgXouhzA2pJwsiodd6jc67eIE9XTZMfGnOGo60CpksnA03CkmiVQMbqAQt833oRm2u09KeT5Zz8eckeMvcf519EsdXcRPXLPaKvuKpt6eLFdeUb2C0U1PKqudVVJx9Tj2itTg2X+/CGBmtQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
 
+
+        /// <summary>
+        /// Returns an IP address used to bind a UDP socket to a non virtual interface
+        /// </summary>
+        /// <returns>IPAddress object of a non virtual interface</returns>
+        public static IPAddress GetClientAddress()
+        {
+            foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus == OperationalStatus.Up && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback && !ni.Description.Contains("Virtual") && !ni.Description.Contains("VMware") && !ni.Description.Contains("Hyper-V"))
+                {
+                    
+                    foreach (UnicastIPAddressInformation ip in ni.GetIPProperties().UnicastAddresses)
+                    {
+                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            return ip.Address;
+                        }
+                    }
+                }
+            }
+            return IPAddress.Loopback;
+        }
+
         /// <summary>
         /// Returns a list of IPEndPoints to which the broadcast packet should be sent.
         /// This avoids relying on the operating system to choose a network interface, which might result in the packet being sent via a virtual interface and never leaving the computer.
@@ -50,7 +74,7 @@ namespace LocalSharingCenter
             List<IPEndPoint> points = new List<IPEndPoint>();
             foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
             {
-                if (ni.OperationalStatus == OperationalStatus.Up && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                if (ni.OperationalStatus == OperationalStatus.Up && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback && !ni.Description.Contains("Virtual") && !ni.Description.Contains("VMware") && !ni.Description.Contains("Hyper-V"))
                 {
                     var ipProperties = ni.GetIPProperties();
                     foreach (var ua in ipProperties.UnicastAddresses)

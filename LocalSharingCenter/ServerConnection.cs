@@ -49,46 +49,43 @@ namespace LocalSharingCenter
         /// <returns>The server's IP address as a string if authentication succeeds, otherwise, returns "/"</returns>
         private string requestServerAuthentication()
         {
-            UdpClient senderSocket = new UdpClient() { EnableBroadcast = true }; 
-            int num = rnd.Next(); 
-            byte[] bitMsg = Encoding.ASCII.GetBytes(Protocol.Connection.PointRequest.ToString() + "|" + num); 
-            IPEndPoint receiveEndPoint = new IPEndPoint(IPAddress.Any, 0);
-            List<IPEndPoint> addresses = Protocol.SubnetsBroadcast(Protocol.UDP_PORT);
-            foreach (IPEndPoint address in addresses)
+            using (UdpClient senderSocket = new UdpClient() { EnableBroadcast = true })
             {
-                senderSocket.Send(bitMsg, bitMsg.Length, address);
-            }
-            senderSocket.Client.ReceiveTimeout = 500;
-            try
-            {
-                byte[] receivedData = senderSocket.Receive(ref receiveEndPoint); 
-                string response = Encoding.UTF8.GetString(receivedData); 
-                string[] parts = response.Split('|'); 
-                if (parts.Length == 2 && parts[0] == Protocol.Connection.PointResponse.ToString())
+                int num = rnd.Next();
+                byte[] bitMsg = Encoding.ASCII.GetBytes(Protocol.Connection.PointRequest.ToString() + "|" + num);
+                IPEndPoint receiveEndPoint = new IPEndPoint(IPAddress.Any, Protocol.UDP_PORT);
+                List<IPEndPoint> addresses = Protocol.SubnetsBroadcast(Protocol.UDP_PORT);
+                senderSocket.Client.ReceiveTimeout = 500;
+                foreach (IPEndPoint address in addresses)
                 {
-                    byte[] signature = Convert.FromBase64String(parts[1]);
-                    byte[] numBytes = Encoding.UTF8.GetBytes(num.ToString());
-                    using (RSA rsa = RSA.Create())
+                    try
                     {
-                        rsa.FromXmlString(Protocol.ServerPublicKey);
-                        bool answer = rsa.VerifyData(numBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-                        if (answer)
+                        senderSocket.Send(bitMsg, bitMsg.Length, address);
+                        byte[] receivedData = senderSocket.Receive(ref receiveEndPoint);
+                        string response = Encoding.UTF8.GetString(receivedData);
+                        string[] parts = response.Split('|');
+                        if (parts.Length == 2 && parts[0] == Protocol.Connection.PointResponse.ToString())
                         {
-                            return receiveEndPoint.Address.ToString();
+                            byte[] signature = Convert.FromBase64String(parts[1]);
+                            byte[] numBytes = Encoding.UTF8.GetBytes(num.ToString());
+                            using (RSA rsa = RSA.Create())
+                            {
+                                rsa.FromXmlString(Protocol.ServerPublicKey);
+                                bool answer = rsa.VerifyData(numBytes, signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                                if (answer)
+                                {
+                                    return receiveEndPoint.Address.ToString();
+                                }
+
+                            }
+
                         }
 
                     }
-
+                    catch (Exception) { }
                 }
-
+                return "/";
             }
-            catch (Exception) { } 
-            finally
-            {
-                senderSocket.Close(); 
-            }
-            return "/";
-
         }
 
         /// <summary>

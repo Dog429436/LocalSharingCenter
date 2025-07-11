@@ -21,25 +21,29 @@ namespace LocalSharingCenter
         /// <returns>True if a response from an active server is received otherwise, false.</returns>
         public static bool IsServerActive() 
         {
-            using (UdpClient client = new UdpClient() { EnableBroadcast = true })
+            using (UdpClient client = new UdpClient(new IPEndPoint(Protocol.GetClientAddress(), 0)) { EnableBroadcast = true })
             {
                 byte[] msg = Encoding.UTF8.GetBytes(Protocol.Connection.RequestServer.ToString());
                 IPEndPoint receive = new IPEndPoint(IPAddress.Any, Protocol.SERVER_CHECK_PORT);
                 List<IPEndPoint> addresses = Protocol.SubnetsBroadcast(Protocol.SERVER_CHECK_PORT);
+                client.Client.ReceiveTimeout = 500;
                 foreach (IPEndPoint address in addresses)
                 {
-                    client.Send(msg, msg.Length, address);
+                    try
+                    {
+                        client.Send(msg, msg.Length, address);
+                        byte[] response = client.Receive(ref receive);
+                        if (Encoding.UTF8.GetString(response) == Protocol.Connection.ServerExists.ToString())
+                        {
+                            return true;
+                        }
+                    }
+                    catch (SocketException ex)
+                    {
+
+                    }
                 }
-                client.Client.ReceiveTimeout = 500;
-                try
-                {
-                    byte[] response = client.Receive(ref receive);
-                    return Encoding.UTF8.GetString(response) == Protocol.Connection.ServerExists.ToString();
-                }
-                catch (SocketException ex)
-                {
-                    return false;
-                }
+                return false;
             }
         }
 
